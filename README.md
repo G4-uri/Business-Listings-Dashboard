@@ -11,7 +11,7 @@ exposes them through a **FastAPI** service (bulk insert + aggregated count APIs)
 | **Frontend** | React 18, Vite, Recharts - cross-filtering charts, URL-shareable state, light/dark theme |
 | **Backend** | FastAPI, SQLAlchemy 2, PyMySQL, Pydantic v2 |
 | **Database** | MySQL 8 - table `listing_master` |
-| **Data pipeline** | Jupyter notebook: OpenStreetMap Overpass API + own MagicPin scrape -> clean -> validate -> load -> `.sql` dump |
+| **Data pipeline** | Jupyter notebooks: `00` sets up DB + API, `01` collects (OpenStreetMap Overpass + own MagicPin scrape), cleans, validates, loads and exports the `.sql` dump |
 | **Tests** | pytest, 10 API tests (run on SQLite and on a MySQL-compatible server) |
 
 ## Repository layout
@@ -30,7 +30,7 @@ Open `notebooks/00_setup_database_and_api.ipynb` (set `DB_MODE` to `"mysql"` or 
 
 ## Quick start (about 5 minutes)
 
-**Prerequisites:** Python 3.10+, Node 18+, MySQL 8 (or `docker compose up -d`).
+**Prerequisites:** Python 3.10+, Node 18+, MySQL 8 (or `docker compose up -d`). Without MySQL, set `DB_MODE = "sqlite"` in notebook 00 to try the project.
 
 ```bash
 # 1. Database - either load the ready-made dump (schema + 500+ rows) ...
@@ -112,16 +112,20 @@ This project therefore uses:
 ## Challenges and how they were solved
 | Challenge | Solution |
 |---|---|
-| Overpass mirrors return 502/504 | Mirror fail-over, timeouts, local cache |
+| Overpass mirrors return 502/504 (Pune never succeeded) | Mirror fail-over, timeouts, local cache, re-runnable per city |
 | Duplicate businesses across runs/sources | DB-level unique fingerprint + `INSERT IGNORE` + pre-check for exact counts |
 | Messy phones, whitespace, casing | Shared Pydantic normalisation (`+91 XXXXXXXXXX`, title-cased cities) |
 | Unfiltered `COUNT(*)` returned 1 | Found while running the notebook end-to-end; fixed with an explicit `FROM` and a regression test |
 | Pie charts with many slices are unreadable | Pie used only for *source* (3 slices); city/category use ranked bars |
 
-## Limitations (please read)
-* The bundled `.sql` dump contains **231 real rows** (62 MagicPin gyms + 169 OSM Ahmedabad attractions) plus
-  **319 synthetic rows** labelled `Sample (synthetic)`, because the build environment could not reach the Overpass API.
-  On a normal internet connection the notebook collects real OSM listings for 8 cities and the synthetic rows are not
-  generated (they only appear when real rows < 500). Re-run the notebook, then re-export the dump, before submitting.
-* Phone numbers are sparse in OSM, so "with a phone number" is mostly driven by MagicPin.
-* No authentication on the API - fine for an assignment, not for production.
+## Data and limitations
+* **Data:** 2,213 real listings - 155 gyms from MagicPin (Ahmedabad) and 2,058 businesses/attractions from
+  OpenStreetMap - across 7 cities (Ahmedabad, Mumbai, Delhi, Bengaluru, Surat, Vadodara, Rajkot) and 10 categories.
+  No synthetic data is included in the submitted dump.
+* **Pune was skipped:** the public Overpass API kept returning 502/504 errors for it. The notebook caches every
+  successful city, so re-running it only requests missing cities.
+* **Sparse phone numbers:** OpenStreetMap rarely has phone data, so most phone numbers come from MagicPin.
+* **Offline fallback:** if fewer than 500 real rows are collected, the notebook adds rows tagged `Sample (synthetic)`
+  (shown in grey in the dashboard, removable with `DELETE FROM listing_master WHERE source='Sample (synthetic)'`).
+  This did not trigger for the submitted data.
+* **No authentication** on the API - fine for an assignment, not for production.
