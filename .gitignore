@@ -1,0 +1,11 @@
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.env
+*.log
+backend/*.db
+.ipynb_checkpoints/
+notebooks/data/raw_cache/
+notebooks/data/ahmedabad_gyms_final.csv
+.DS_Store
